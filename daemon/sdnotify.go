@@ -7,13 +7,17 @@ import (
 	"syscall"
 )
 
+const (
+	notifySocket = "NOTIFY_SOCKET"
+)
+
 func SdNotifyWithFds(unsetEnvironment bool, state string, files ...*os.File) (sent bool, err error) {
-	socketName := os.Getenv("NOTIFY_SOCKET")
+	socketName := os.Getenv(notifySocket)
 	if socketName == "" {
 		return false, nil
 	}
 	if unsetEnvironment {
-		defer os.Unsetenv("NOTIFY_SOCKET")
+		defer os.Unsetenv(notifySocket)
 	}
 	socketAddr := &net.UnixAddr{
 		Name: socketName,
