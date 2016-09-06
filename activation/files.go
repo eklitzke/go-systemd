@@ -18,26 +18,40 @@ package activation
 import (
 	"os"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
 // based on: https://gist.github.com/alberts/4640792
 const (
 	listenFdsStart = 3
+	listenPid      = "LISTEN_PID"
+	listenFds      = "LISTEN_FDS"
+	listenFdNames  = "LISTEN_FDNAMES"
 )
+
+type NamedFd struct {
+	File *os.File
+	Name string
+}
+
+func unsetAll() {
+	os.Unsetenv(listenPid)
+	os.Unsetenv(listenFds)
+	os.Unsetenv(listenFdNames)
+}
 
 func Files(unsetEnv bool) []*os.File {
 	if unsetEnv {
-		defer os.Unsetenv("LISTEN_PID")
-		defer os.Unsetenv("LISTEN_FDS")
+		defer unsetAll()
 	}
 
-	pid, err := strconv.Atoi(os.Getenv("LISTEN_PID"))
+	pid, err := strconv.Atoi(os.Getenv(listenPid))
 	if err != nil || pid != os.Getpid() {
 		return nil
 	}
 
-	nfds, err := strconv.Atoi(os.Getenv("LISTEN_FDS"))
+	nfds, err := strconv.Atoi(os.Getenv(listenFds))
 	if err != nil || nfds == 0 {
 		return nil
 	}
@@ -49,4 +63,21 @@ func Files(unsetEnv bool) []*os.File {
 	}
 
 	return files
+}
+
+func FilesWithNames(unsetEnv bool) []NamedFd {
+	if unsetEnv {
+		defer unsetAll()
+	}
+	files := Files(false)
+	names := strings.Split(os.Getenv(listenFdNames), ":")
+
+	namedFds := make([]NamedFd, len(files), len(files))
+	for i := 0; i < len(files); i++ {
+		namedFds[i].File = files[i]
+		if i < len(names) {
+			namedFds[i].Name = names[i]
+		}
+	}
+	return namedFds
 }
