@@ -30,9 +30,13 @@ const (
 	listenFdNames  = "LISTEN_FDNAMES"
 )
 
-type NamedFd struct {
-	File *os.File
-	Name string
+// NamedFile represents a file descriptor that systemd is storing on behalf of
+// the user program, along with the name systemd has given it. Typically the
+// file object will be a socket, but other file types can be stored by
+// SdNotifyWithFds.
+type NamedFile struct {
+	File *os.File // the file object
+	Name string   // the name given by systemd
 }
 
 func unsetAll() {
@@ -41,6 +45,7 @@ func unsetAll() {
 	os.Unsetenv(listenFdNames)
 }
 
+// Files retrieves the file objects stored by systemd.
 func Files(unsetEnv bool) []*os.File {
 	if unsetEnv {
 		defer unsetAll()
@@ -65,19 +70,25 @@ func Files(unsetEnv bool) []*os.File {
 	return files
 }
 
-func FilesWithNames(unsetEnv bool) []NamedFd {
+// FilesWithNames retrieves the file objects stored by systemd, along with their
+// names. This will typically be used by programs using the SdNotifyWithFds
+// method to store client non-listen sockets.
+func FilesWithNames(unsetEnv bool) []NamedFile {
 	if unsetEnv {
 		defer unsetAll()
 	}
-	files := Files(false)
-	names := strings.Split(os.Getenv(listenFdNames), ":")
 
-	namedFds := make([]NamedFd, len(files), len(files))
+	// delegate to Files() to actually fetch the file descriptors
+	files := Files(false)
+
+	// parse out the file names
+	names := strings.Split(os.Getenv(listenFdNames), ":")
+	namedFiles := make([]NamedFile, len(files), len(files))
 	for i := 0; i < len(files); i++ {
-		namedFds[i].File = files[i]
+		namedFiles[i].File = files[i]
 		if i < len(names) {
-			namedFds[i].Name = names[i]
+			namedFiles[i].Name = names[i]
 		}
 	}
-	return namedFds
+	return namedFiles
 }

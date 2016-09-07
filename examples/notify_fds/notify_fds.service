@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/home/evan/go/src/github.com/coreos/go-systemd/examples/notify_fds/notify_fds
+ExecStart=/usr/local/bin/notify_fds
 
 [Install]
 WantedBy=multi-user.target

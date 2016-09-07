@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2016 Uber Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build ignore
+
 package main
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -45,16 +46,19 @@ func main() {
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	// This signal handler will return the listen socket back to systemd before
+	// exiting.
 	go func() {
 		_ = <-c
 
-		// Make a best effort to store the listen socket in systemd
+		// Make a best effort to store the listen socket in systemd, ignoring any
+		// errors.
 		tcpListener, ok := listenSock.(*net.TCPListener)
 		if ok {
 			listenFile, err := tcpListener.File()
 			if err != nil {
-				sent, err := daemon.SdNotifyWithFds(true, "FDSTORE=1", listenFile)
-				fmt.Printf("sent = %v, err = %v\n", sent, err)
+				daemon.SdNotifyWithFds(true, "FDSTORE=1", listenFile)
 			}
 		}
 		os.Exit(0)
