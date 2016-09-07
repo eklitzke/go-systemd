@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build ignore
-
 package main
 
 import (
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -29,24 +26,27 @@ import (
 	"github.com/coreos/go-systemd/daemon"
 )
 
-func pingServer(w http.ResponseWriter, req *http.Request) {
-	io.WriteString(w, "ping\n")
+type pingHandler struct{}
+
+func (h *pingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("ping\n"))
 }
 
-func pongServer(w http.ResponseWriter, req *http.Request) {
-	io.WriteString(w, "pong\n")
+type pongHandler struct{}
+
+func (h *pongHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("ping\n"))
 }
 
 func main() {
-	listeners, err := activation.Listeners(true)
+	listeners, err := activation.ListenersWithNames(true)
 	if err != nil {
 		log.Fatalf("failed to activate listener: %v\n", err)
 	}
 
-	if len(listeners) != 1 {
-		panic("Unexpected number of socket activation fds")
+	if len(listeners) != 2 {
+		log.Fatalf("Unexpected number of socket-activated listeners: %v\n", listeners)
 	}
-	listenSock := listeners[0]
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -68,6 +68,24 @@ func main() {
 		os.Exit(0)
 	}()
 
-	http.HandleFunc("/", helloServer)
-	http.Serve(listenSock, nil)
+	var listenMap map[string]net.Listener
+	for nl := range listeners {
+		listenMap[nl.Name] = nl.Listener
+	}
+	pingListener, ok := listenMap["ping"]
+	if !ok {
+		log.Fatalf("expected to get 'ping' socket")
+
+	}
+	pongListener, ok := listenMap["pong"]
+	if !ok {
+		log.Fatalf("expected to get 'pong' socket")
+
+	}
+	go func() {
+		srv := &http.Server{Handler: pingHandler}
+		srv.Serve(pingListener, nil)
+	}()
+	srv := &http.Server{Handler: pongHandler}
+	srv.Serve(pongListener, nil)
 }

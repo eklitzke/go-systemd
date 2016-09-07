@@ -24,6 +24,25 @@ type NamedListener struct {
 	Name     string       // the name given by systemd
 }
 
+// Listeners returns a slice containing a net.Listener for each matching socket type
+// passed to this process.
+//
+// The order of the file descriptors is preserved in the returned slice.
+// Nil values are used to fill any gaps. For example if systemd were to return file descriptors
+// corresponding with "udp, tcp, tcp", then the slice would contain {nil, net.Listener, net.Listener}
+func Listeners(unsetEnv bool) ([]net.Listener, error) {
+	files := Files(unsetEnv)
+	listeners := make([]net.Listener, len(files))
+
+	for i, f := range files {
+		if pc, err := net.FileListener(f); err == nil {
+			listeners[i] = pc
+		}
+	}
+	return listeners, nil
+}
+
+// ListenersWithNames gets listen sockets with their associated names
 func ListenersWithNames(unsetEnv bool) ([]NamedListener, error) {
 	namedFiles := FilesWithNames(unsetEnv)
 	listeners := make([]NamedListener, len(namedFiles))
@@ -33,25 +52,6 @@ func ListenersWithNames(unsetEnv bool) ([]NamedListener, error) {
 		if pc, err := net.FileListener(nf.File); err == nil {
 			listeners[i].Listener = pc
 		}
-	}
-	return listeners, nil
-}
-
-// Listeners returns a slice containing a net.Listener for each matching socket type
-// passed to this process.
-//
-// The order of the file descriptors is preserved in the returned slice.
-// Nil values are used to fill any gaps. For example if systemd were to return file descriptors
-// corresponding with "udp, tcp, tcp", then the slice would contain {nil, net.Listener, net.Listener}
-func Listeners(unsetEnv bool) ([]net.Listener, error) {
-	namedListeners, err := ListenersWithNames(unsetEnv)
-	listeners := make([]net.Listener, len(namedListeners))
-	if err != nil {
-		return listeners, err
-	}
-
-	for i, nl := range namedListeners {
-		listeners[i] = nl.Listener
 	}
 	return listeners, nil
 }
