@@ -19,6 +19,24 @@ import (
 	"net"
 )
 
+type NamedListener struct {
+	Listener net.Listener // the listener
+	Name     string       // the name given by systemd
+}
+
+func ListenersWithNames(unsetEnv bool) ([]NamedListener, error) {
+	namedFiles := FilesWithNames(unsetEnv)
+	listeners := make([]NamedListener, len(namedFiles))
+
+	for i, nf := range namedFiles {
+		listeners[i].Name = nf.Name
+		if pc, err := net.FileListener(nf.File); err == nil {
+			listeners[i].Listener = pc
+		}
+	}
+	return listeners, nil
+}
+
 // Listeners returns a slice containing a net.Listener for each matching socket type
 // passed to this process.
 //
@@ -26,13 +44,14 @@ import (
 // Nil values are used to fill any gaps. For example if systemd were to return file descriptors
 // corresponding with "udp, tcp, tcp", then the slice would contain {nil, net.Listener, net.Listener}
 func Listeners(unsetEnv bool) ([]net.Listener, error) {
-	files := Files(unsetEnv)
-	listeners := make([]net.Listener, len(files))
+	namedListeners, err := ListenersWithNames(unsetEnv)
+	listeners := make([]net.Listener, len(namedListeners))
+	if err != nil {
+		return listeners, err
+	}
 
-	for i, f := range files {
-		if pc, err := net.FileListener(f); err == nil {
-			listeners[i] = pc
-		}
+	for i, nl := range namedListeners {
+		listeners[i] = nl.Listener
 	}
 	return listeners, nil
 }

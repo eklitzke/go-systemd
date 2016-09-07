@@ -29,8 +29,12 @@ import (
 	"github.com/coreos/go-systemd/daemon"
 )
 
-func helloServer(w http.ResponseWriter, req *http.Request) {
-	io.WriteString(w, "welcome to the brave new systemd future\n")
+func pingServer(w http.ResponseWriter, req *http.Request) {
+	io.WriteString(w, "ping\n")
+}
+
+func pongServer(w http.ResponseWriter, req *http.Request) {
+	io.WriteString(w, "pong\n")
 }
 
 func main() {
