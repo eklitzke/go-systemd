@@ -38,6 +38,14 @@ func (h *pongHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ping\n"))
 }
 
+func toTCPListener(listener net.Listener) *net.TCPListener {
+	tcpListener, ok := listener.(*net.TCPListener)
+	if !ok {
+		log.Fatalf("expected a TCP socket\n")
+	}
+	return tcpListener
+}
+
 func main() {
 	listeners, err := activation.ListenersWithNames(true)
 	if err != nil {
@@ -48,6 +56,24 @@ func main() {
 		log.Fatalf("Unexpected number of socket-activated listeners: %v\n", listeners)
 	}
 
+	var pingListener, pongListener *net.TCPListener
+	for _, nl := range listeners {
+		switch nl.Name {
+		case "ping":
+			pingListener = toTCPListener(nl.Listener)
+		case "pong":
+			pongListener = toTCPListener(nl.Listener)
+		default:
+			log.Fatalf("unexpected socket name: %s\n", nl.Name)
+		}
+	}
+	if pingListener == nil {
+		log.Fatalf("missing ping socket\n")
+	}
+	if pongListener == nil {
+		log.Fatalf("missing pong socket\n")
+	}
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
@@ -56,36 +82,22 @@ func main() {
 	go func() {
 		_ = <-c
 
-		// Make a best effort to store the listen socket in systemd, ignoring any
-		// errors.
-		tcpListener, ok := listenSock.(*net.TCPListener)
-		if ok {
-			listenFile, err := tcpListener.File()
-			if err != nil {
-				daemon.SdNotifyWithFds(true, "FDSTORE=1", listenFile)
+		pingFile, err := pingListener.File()
+		if err == nil {
+			pongFile, err := pongListener.File()
+			if err == nil {
+				daemon.SdNotifyWithFds(true, "FDSTORE=1\nFDNAMES=ping:pong\n", pingFile, pongFile)
 			}
 		}
 		os.Exit(0)
 	}()
 
-	var listenMap map[string]net.Listener
-	for nl := range listeners {
-		listenMap[nl.Name] = nl.Listener
-	}
-	pingListener, ok := listenMap["ping"]
-	if !ok {
-		log.Fatalf("expected to get 'ping' socket")
-
-	}
-	pongListener, ok := listenMap["pong"]
-	if !ok {
-		log.Fatalf("expected to get 'pong' socket")
-
-	}
 	go func() {
-		srv := &http.Server{Handler: pingHandler}
-		srv.Serve(pingListener, nil)
+		var ph pingHandler
+		srv := &http.Server{Handler: &ph}
+		srv.Serve(pingListener)
 	}()
-	srv := &http.Server{Handler: pongHandler}
-	srv.Serve(pongListener, nil)
+	var ph pongHandler
+	srv := &http.Server{Handler: &ph}
+	srv.Serve(pongListener)
 }
