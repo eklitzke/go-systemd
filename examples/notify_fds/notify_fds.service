@@ -1,0 +1,11 @@
+[Unit]
+Description=Hello World HTTP
+Requires=network.target
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/home/evan/go/src/github.com/coreos/go-systemd/examples/notify_fds
+
+[Install]
+WantedBy=multi-user.target

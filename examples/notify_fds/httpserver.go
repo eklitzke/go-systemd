@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -51,7 +52,8 @@ func main() {
 		if ok {
 			listenFile, err := tcpListener.File()
 			if err != nil {
-				daemon.SdNotifyWithFds(true, "FDSTORE=1", listenFile)
+				sent, err := daemon.SdNotifyWithFds(true, "FDSTORE=1", listenFile)
+				fmt.Printf("sent = %v, err = %v\n", sent, err)
 			}
 		}
 		os.Exit(0)
