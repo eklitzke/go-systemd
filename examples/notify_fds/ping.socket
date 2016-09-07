@@ -1,5 +1,7 @@
 [Socket]
 ListenStream=127.0.0.1:8076
+FileDescriptorName=ping
+Service=notify_fds.service
 
 [Install]
 WantedBy=sockets.target

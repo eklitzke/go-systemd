@@ -1,5 +1,7 @@
 [Socket]
 ListenStream=127.0.0.1:8077
+FileDescriptorName=pong
+Service=notify_fds.service
 
 [Install]
 WantedBy=sockets.target
