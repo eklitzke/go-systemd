@@ -35,7 +35,7 @@ func (h *pingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type pongHandler struct{}
 
 func (h *pongHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("ping\n"))
+	w.Write([]byte("pong\n"))
 }
 
 func toTCPListener(listener net.Listener) *net.TCPListener {
