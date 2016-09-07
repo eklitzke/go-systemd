@@ -17,7 +17,7 @@ To first set it up:
 mkdir -p ~/.config/systemd/user
 install -m 644 notify_fds.{service,socket} ~/.config/systemd/user
 vi ~/.config/systemd/user/notify_fds.service  # make sure ExecStart has the correct executable
-systemctl --user reload-daemon
+systemctl --user daemon-reload
 systemctl --user start notify_fds.socket
 ```
 
