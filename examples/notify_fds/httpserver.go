@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -27,14 +28,14 @@ import (
 	"github.com/coreos/go-systemd/daemon"
 )
 
-func HelloServer(w http.ResponseWriter, req *http.Request) {
-	io.WriteString(w, "hello socket activated world!\n")
+func helloServer(w http.ResponseWriter, req *http.Request) {
+	io.WriteString(w, "welcome to the brave new systemd future\n")
 }
 
 func main() {
 	listeners, err := activation.Listeners(true)
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to activate listener: %v\n", err)
 	}
 
 	if len(listeners) != 1 {
@@ -59,6 +60,6 @@ func main() {
 		os.Exit(0)
 	}()
 
-	http.HandleFunc("/", HelloServer)
+	http.HandleFunc("/", helloServer)
 	http.Serve(listenSock, nil)
 }
