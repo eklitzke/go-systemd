@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build ignore
-
 package main
 
 import (
-	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/coreos/go-systemd/activation"
+	"github.com/coreos/go-systemd/daemon"
 )
 
 func HelloServer(w http.ResponseWriter, req *http.Request) {
@@ -31,18 +31,6 @@ func HelloServer(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Term)
-
-	go func() {
-		s := <-c
-		notify.SdNotifyWithFds()
-
-	}()
-
-	// Block until a signal is received.
-	fmt.Println("Got signal:", s)
-
 	listeners, err := activation.Listeners(true)
 	if err != nil {
 		panic(err)
@@ -51,7 +39,24 @@ func main() {
 	if len(listeners) != 1 {
 		panic("Unexpected number of socket activation fds")
 	}
+	listenSock := listeners[0]
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		_ = <-c
+
+		// Make a best effort to store the listen socket in systemd
+		tcpListener, ok := listenSock.(*net.TCPListener)
+		if ok {
+			listenFile, err := tcpListener.File()
+			if err != nil {
+				daemon.SdNotifyWithFds(true, "FDSTORE=1", listenFile)
+			}
+		}
+		os.Exit(0)
+	}()
 
 	http.HandleFunc("/", HelloServer)
-	http.Serve(listeners[0], nil)
+	http.Serve(listenSock, nil)
 }
