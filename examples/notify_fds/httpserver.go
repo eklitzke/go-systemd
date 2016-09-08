@@ -26,6 +26,11 @@ import (
 	"github.com/coreos/go-systemd/daemon"
 )
 
+const (
+	pingPort = 8076
+	pongPort = 8077
+)
+
 type pingHandler struct{}
 
 func (h *pingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +52,7 @@ func toTCPListener(listener net.Listener) *net.TCPListener {
 }
 
 func main() {
-	listeners, err := activation.ListenersWithNames(true)
+	listeners, err := activation.Listeners(true)
 	if err != nil {
 		log.Fatalf("failed to activate listener: %v\n", err)
 	}
@@ -57,21 +62,22 @@ func main() {
 	}
 
 	var pingListener, pongListener *net.TCPListener
-	for _, nl := range listeners {
-		switch nl.Name {
-		case "ping":
-			pingListener = toTCPListener(nl.Listener)
-		case "pong":
-			pongListener = toTCPListener(nl.Listener)
+	for _, l := range listeners {
+		port := l.Addr().(*net.TCPAddr).Port
+		switch port {
+		case pingPort:
+			pingListener = toTCPListener(l)
+		case pongPort:
+			pongListener = toTCPListener(l)
 		default:
-			log.Fatalf("unexpected socket name: %s\n", nl.Name)
+			log.Fatalf("unexpected port: %d\n", port)
 		}
 	}
 	if pingListener == nil {
-		log.Fatalf("missing ping socket\n")
+		log.Fatalf("missing ping listener\n")
 	}
 	if pongListener == nil {
-		log.Fatalf("missing pong socket\n")
+		log.Fatalf("missing pong listener\n")
 	}
 
 	c := make(chan os.Signal, 1)
@@ -86,7 +92,7 @@ func main() {
 		if err == nil {
 			pongFile, err := pongListener.File()
 			if err == nil {
-				daemon.SdNotifyWithFds(true, "FDSTORE=1\nFDNAMES=ping:pong\n", pingFile, pongFile)
+				daemon.SdNotifyWithFds(true, "FDSTORE=1", pingFile, pongFile)
 			}
 		}
 		os.Exit(0)
